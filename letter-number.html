@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Number Letter</title>
+    <script src="./dist/jspsych.js"></script>
+    <script src="./dist/plugin-preload.js"></script>
+    <script src="./dist/plugin-html-keyboard-response.js"></script>
+    <script src="./dist/plugin-html-button-response.js"></script>
+    <script src="./dist/plugin-survey-text.js"></script>
+    <script src="./dist/plugin-fullscreen.js"></script>
+    <script src="./config/variables.js"></script>
+    <script src="./config/en.js"></script> <!-- Use en.js for English instructions, jp.js for Japanese -->
+    <link href="./dist/jspsych.css" rel="stylesheet" type="text/css" />
+    <link href="./style/style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body></body>
+  <script>
+    const jsPsych = initJsPsych({
+      on_finish: function() {
+        jsPsych.data.displayData(); // for debugging
+      }
+    });
+
+    let timeline = [];
+
+    const enter_fullscreen = {
+      type: jsPsychFullscreen,
+      fullscreen_mode: true,
+      message: lang.fullscreen,
+      button_label: lang.utils.next
+    }
+
+    const welcome = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.welcome,
+      choices: [lang.utils.next]
+    };
+
+    const instructions = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.instructions.number_letter,
+      choices: [lang.utils.next]
+    };
+
+    const beginTask = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.begin,
+      choices: [lang.utils.next],
+      post_trial_gap: interstimuli_interval.instructions
+    };
+    timeline.push(enter_fullscreen, welcome, instructions, beginTask);
+
+    const trials = [];
+    const choices = letter_number.choices.toString().split(',');
+    for (let i = 0; i < letter_number.trial_length; i++) {
+      const letter = letter_number.letters[Math.floor(Math.random() * letter_number.letters.length)]
+      const number = letter_number.numbers[Math.floor(Math.random() * letter_number.numbers.length)]
+      const quadrant = letter_number.quadrants[i % 4];
+
+      const stimulus = letter + number;
+
+      let correct_response = (['A', 'E', 'I', 'O', 'U'].includes(letter)) ? choices[1] : choices[0];
+      if (quadrant === 'bottom-left' || quadrant === 'bottom-right') {
+        correct_response = (parseInt(number) % 2 === 0) ? choices[1] : choices[0];
+      }
+
+      const trial = {
+        stimulus: stimulus,
+        quadrant: quadrant,
+        correct_response: correct_response
+      };
+
+      trials.push(trial);
+    }
+
+    const trial_procedure = {
+        timeline: [{
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: function(){
+                let html = `<div class="quadrant" id="${jsPsych.timelineVariable('quadrant')}">`;
+                html += "<div class='stimulus'>" + jsPsych.timelineVariable('stimulus') + "</div></div>";
+                return html;
+            },
+            choices: choices,
+            data: {
+                task: jsPsych.timelineVariable('quadrant'),
+                correct_response: jsPsych.timelineVariable('correct_response')
+            },
+            on_finish: function(data){
+                data.correct = data.response === data.correct_response;
+            }
+        }],
+        timeline_variables: trials
+    };
+    timeline.push(trial_procedure);
+
+    const end = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.end,
+      choices: [lang.utils.finish]
+    };
+
+    const exit_fullscreen = {
+      type: jsPsychFullscreen,
+      fullscreen_mode: false,
+      delay_after: 0
+    }
+    timeline.push(end, exit_fullscreen);
+
+    const debrief_block = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        const trials = jsPsych.data.get().filter([{task: 'top-right'}, {task: 'top-left'}, {task: 'bottom-left'}, {task: 'bottom-right'}]);
+        const correct_trials = trials.filter({correct: true});
+        const accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+        // const rt = Math.round(correct_trials.select('rt').mean());
+
+        return feedback(accuracy);
+      }
+    };
+    timeline.push(debrief_block);
+
+    jsPsych.run(timeline);
+  </script>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Color Shape</title>
+    <script src="./dist/jspsych.js"></script>
+    <script src="./dist/plugin-preload.js"></script>
+    <script src="./dist/plugin-html-keyboard-response.js"></script>
+    <script src="./dist/plugin-html-button-response.js"></script>
+    <script src="./dist/plugin-image-keyboard-response.js"></script>
+    <script src="./dist/plugin-survey-text.js"></script>
+    <script src="./dist/plugin-fullscreen.js"></script>
+    <script src="./config/variables.js"></script>
+    <script src="./config/en.js"></script> <!-- Use en.js for English instructions, jp.js for Japanese -->
+    <link href="./dist/jspsych.css" rel="stylesheet" type="text/css" />
+    <link href="./style/style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body></body>
+  <script>
+    const jsPsych = initJsPsych({
+      on_finish: function() {
+        jsPsych.data.displayData(); // for debugging
+      }
+    });
+
+    let timeline = [];
+
+    const images = color_shape.images;
+    const cues = color_shape.cue;
+
+    const preload = {
+      type: jsPsychPreload,
+      images: images
+    };
+    timeline.push(preload);
+
+    const enter_fullscreen = {
+      type: jsPsychFullscreen,
+      fullscreen_mode: true,
+      message: lang.fullscreen,
+      button_label: lang.utils.next
+    }
+
+    const welcome = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.welcome,
+      choices: [lang.utils.next]
+    };
+
+    const instructions = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.instructions.color_shape,
+      choices: [lang.utils.next]
+    };
+
+    const beginTask = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.begin,
+      choices: [lang.utils.next],
+      post_trial_gap: interstimuli_interval.instructions
+    };
+    timeline.push(enter_fullscreen, welcome, instructions, beginTask);
+
+    const trials = [
+      { stimulus: images[0], cue: cues[0], correct_response: "1" },
+      { stimulus: images[1], cue: cues[0], correct_response: "2" },
+      { stimulus: images[2], cue: cues[1], correct_response: "1" },
+      { stimulus: images[3], cue: cues[1], correct_response: "2" }
+    ];
+
+    const choices = color_shape.choices.toString().split(',');
+
+    const cue_and_blank_procedure = {
+      timeline: [
+        {
+          type: jsPsychHtmlKeyboardResponse,
+          stimulus: function() {
+            const cue = jsPsych.timelineVariable('cue');
+            return cue === cues[0] ? `<p class='text'>${cues[0]}</p>` : `<p class='text'>${cues[1]}</p>`;
+          },
+          choices: "NO_KEYS",
+          trial_duration: color_shape.cue_duration,
+          post_trial_gap: color_shape.cue_interstimuli_interval
+        },
+        {
+          type: jsPsychImageKeyboardResponse,
+          stimulus: jsPsych.timelineVariable('stimulus'),
+          choices: choices,
+          trial_duration: color_shape.trial_duration,
+          post_trial_gap: color_shape.interstimuli_interval,
+          data: {
+            cue: jsPsych.timelineVariable('cue'),
+            task: 'response',
+            correct_response: jsPsych.timelineVariable('correct_response')
+          },
+          on_finish: function(data){
+            data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+          }
+        }
+      ],
+      timeline_variables: trials,
+      randomize_order: true,
+      repetitions: color_shape.trial_length
+    };
+    timeline.push(cue_and_blank_procedure);
+
+    const end = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.end,
+      choices: [lang.utils.finish]
+    };
+
+    const exit_fullscreen = {
+      type: jsPsychFullscreen,
+      fullscreen_mode: false,
+      delay_after: 0
+    }
+    timeline.push(end, exit_fullscreen);
+
+    const debrief_block = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        const trials = jsPsych.data.get().filter({task: 'response'});
+        const correct_trials = trials.filter({correct: true});
+        const accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+        // var rt = Math.round(correct_trials.select('rt').mean());
+
+        return feedback(accuracy)
+      }
+    };
+    timeline.push(debrief_block);
+
+    jsPsych.run(timeline)
+  </script>
+</html>

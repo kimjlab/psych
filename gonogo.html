@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Go/No-go</title>
+    <script src="./dist/jspsych.js"></script>
+    <script src="./dist/plugin-html-keyboard-response.js"></script>
+    <script src="./dist/plugin-html-button-response.js"></script>
+    <script src="./dist/plugin-fullscreen.js"></script>
+    <script src="./config/variables.js"></script>
+    <script src="./config/jp.js"></script> <!-- Use en.js for English instructions, ja.js for Japanese -->
+    <link href="./dist/jspsych.css" rel="stylesheet" type="text/css" />
+    <link href="./style/style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body></body>
+  <script>
+    function generateFixedRatioArray(length, target, target_probability) {
+      let array = [];
+      const totalSpecial = Math.round(length * target_probability);
+      const otherNumbersCount = length - totalSpecial;
+
+      for (let i = 0; i < totalSpecial; i++) {
+          array.push(target);
+      }
+
+      for (let i = 0; i < otherNumbersCount; i++) {
+          let randomNumber;
+          do {
+              randomNumber = Math.floor(Math.random() * 9) + 1;
+          } while (randomNumber === target);
+          array.push(randomNumber);
+      }
+
+      // 配列をシャッフル
+      array = array.sort(() => Math.random() - 0.5);
+
+      return array;
+    }
+    function test_stimuli () {
+      const array = generateFixedRatioArray(gonogo.trial_length, gonogo.trial_target, gonogo.trial_target_probability);
+      const stimuli = [];
+      for (let i = 0; i < array.length; i++) {
+        if (array[i] === 3) {
+          stimuli.push({ stimulus: `<span style="font-size: 6rem; font-weight: bold;">${array[i]}</span>`, correct_response: "" });
+        } else {
+          stimuli.push({ stimulus: `<span style="font-size: 6rem; font-weight: bold;">${array[i]}</span>`, correct_response: " " });
+        }
+      }
+      return stimuli;
+    }
+
+    const jsPsych = initJsPsych({
+      on_finish: function() {
+        jsPsych.data.displayData(); // for debugging
+      }
+    });
+
+    let timeline = [];
+
+    const enter_fullscreen = {
+      type: jsPsychFullscreen,
+      fullscreen_mode: true,
+      message: lang.fullscreen,
+      button_label: lang.utils.next
+    }
+
+    const welcome = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.welcome,
+      choices: [lang.utils.next]
+    };
+
+    const instructions = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.instructions.gonogo,
+      choices: [lang.utils.next]
+    };
+
+    const beginTask = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.begin,
+      choices: [lang.utils.next],
+      post_trial_gap: interstimuli_interval.instructions
+    };
+    timeline.push(enter_fullscreen, welcome, instructions, beginTask);
+
+    const test = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: jsPsych.timelineVariable('stimulus'),
+      trial_duration: gonogo.trial_duration,
+      post_trial_gap: gonogo.interstimuli_interval,
+      choices: [" ", ""],
+      data: {
+        task: 'response',
+        correct_response: jsPsych.timelineVariable('correct_response')
+      },
+      on_finish: function(data){
+        if (data.response == null && data.correct_response == "") { // if not the target, no response is correct but returns null in data.response so make it rue as it is correct
+          data.correct = true;
+        } else {
+          data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response); // if the target, compare the response with the correct response
+        }
+      }
+    }
+    const test_procedure = {
+      timeline: [test],
+      timeline_variables: test_stimuli()
+    }
+    timeline.push(test_procedure);
+
+    const end = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.end,
+      choices: [lang.utils.finish]
+    };
+
+    const exit_fullscreen = {
+      type: jsPsychFullscreen,
+      fullscreen_mode: false,
+      delay_after: 0
+    }
+    timeline.push(end, exit_fullscreen);
+
+    // for debugging...
+    const debrief_block = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        const trials = jsPsych.data.get().filter({task: 'response'});
+        const correct_trials = trials.filter({correct: true});
+        const accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+        // const rt = Math.round(correct_trials.select('rt').mean());
+
+        return feedback(accuracy);
+      }
+    };
+    timeline.push(debrief_block);
+
+    jsPsych.run(timeline);
+  </script>
+</html>

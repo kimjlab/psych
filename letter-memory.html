@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Letter Memory</title>
+    <script src="./dist/jspsych.js"></script>
+    <script src="./dist/plugin-html-keyboard-response.js"></script>
+    <script src="./dist/plugin-html-button-response.js"></script>
+    <script src="./dist/plugin-survey-text.js"></script>
+    <script src="./dist/plugin-fullscreen.js"></script>
+    <script src="./config/variables.js"></script>
+    <script src="./config/en.js"></script> <!-- Use en.js for English instructions, jp.js for Japanese -->
+    <link href="./dist/jspsych.css" rel="stylesheet" type="text/css" />
+    <link href="./style/style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body></body>
+  <script>
+    const jsPsych = initJsPsych({
+      on_finish: function() {
+        jsPsych.data.displayData(); // for debugging
+      }
+    });
+
+    let timeline = [];
+
+    const enter_fullscreen = {
+      type: jsPsychFullscreen,
+      fullscreen_mode: true,
+      message: lang.fullscreen,
+      button_label: lang.utils.next
+    }
+
+    const welcome = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.welcome,
+      choices: [lang.utils.next]
+    };
+
+    const instructions = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.instructions.letter_memory(letter_memory.trial_target),
+      choices: [lang.utils.next]
+    };
+
+    const beginTask = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.begin,
+      choices: [lang.utils.next],
+      post_trial_gap: interstimuli_interval.instructions
+    };
+    timeline.push(enter_fullscreen, welcome, instructions, beginTask);
+
+    for (let i = 0; i < letter_memory.trial_length; i++) {
+      let letter = []
+      const letterLength = jsPsych.randomization.sampleWithoutReplacement([5, 7, 9, 11], 1)[0];
+      for (let i = 0; i < letterLength; i++) {
+        let newLetter = letter_memory.letters[Math.floor(Math.random() * letter_memory.letters.length)];
+        while (newLetter === letter[letter.length - 1]) {
+          newLetter = letter_memory.letters[Math.floor(Math.random() * letter_memory.letters.length)];
+        }
+        letter.push(newLetter);
+      }
+      for (let i = 0; i < letter.length; i++) {
+        const lettermemory = {
+          type: jsPsychHtmlKeyboardResponse,
+          stimulus: `<p class="text"><b>${letter[i]}</b></p>`,
+          trial_duration: letter_memory.trial_duration,
+          choices: "NO_KEYS"
+        };
+        timeline.push(lettermemory);
+      }
+
+      const recall = {
+        type: jsPsychSurveyText,
+        trial_duration: letter_memory.recall_duration,
+        response_ends_trial: false,
+        questions: [
+          {prompt: "What were the letters", required: true, name: "letters"}
+        ],
+        data: {
+          task: 'LETTER_MEMORY',
+          correct_response: letter.slice(-(letter_memory.trial_target)).join('').replace(/,/g, '').toLowerCase(),
+          letterLength: letterLength
+        },
+        on_finish: function(data) {
+          data.correct = data.response.letters === data.correct_response;
+        }
+      };
+      timeline.push(recall);
+    }
+
+    const end = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: lang.end,
+      choices: [lang.utils.finish]
+    };
+
+    const exit_fullscreen = {
+      type: jsPsychFullscreen,
+      fullscreen_mode: false,
+      delay_after: 0
+    }
+    timeline.push(end, exit_fullscreen);
+
+    const debrief_block = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        const trials = jsPsych.data.get().filter({task: 'LETTER_MEMORY'});
+        const correct_trials = trials.filter({correct: true});
+        const accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+        // const rt = Math.round(correct_trials.select('rt').mean());
+
+        return feedback(accuracy);
+      }
+    };
+    timeline.push(debrief_block);
+
+    jsPsych.run(timeline)
+  </script>
+</html>

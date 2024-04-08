@@ -1,0 +1,19 @@
+{
+    "cognitive_atlas_task_id": "trm_4c40d4054f38b",
+    "instructions":"Respond to the stimuli on the screen.",
+    "description":"Expfactory experiment",
+    "url":"https://www.github.com/expfactory-experiments/keep-track",
+    "contributors": [
+        "Ian Eisenberg",
+        "Zeynep Enkavi",
+        "Patrick Bissett",
+        "Vanessa Sochat",
+        "Russell Poldrack"
+    ],
+    "exp_id": "keep-track",
+    "name": "Keep Track Experiment",
+    "reference": ["Condition indicates difficulty as quantified by the 'target length': the number of categories the subject had to remember",
+                  "http://www.sciencedirect.com/science/article/pii/S001002859990734X"],
+    "template": "jspsych",
+    "time": 6
+}
